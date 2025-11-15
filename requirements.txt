@@ -1,3 +1,4 @@
+weasyprint
 scapy
 python-nmap
 jinja2

@@ -1,86 +1,99 @@
+import os
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+# Import your scanning engine
 from engine.engine import run_full_scan
-from database.db import init_db, get_connection
-from database.changes import detect_changes
-from reports.html_generator import generate_html_report
-from reports.pdf_generator import generate_pdf_report
 
 app = FastAPI()
 
-app.mount("/static", StaticFiles(directory="web/static"), name="static")
-templates = Jinja2Templates(directory="web/templates")
+# Serve static files (CSS, JS)
+STATIC_DIR = os.path.join("web", "static")
+TEMPLATE_DIR = os.path.join("web", "templates")
+
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+# Jinja2 Template Loader
+templates = Jinja2Templates(directory=TEMPLATE_DIR)
 
 
+# ---------------------------------------------------------
+#  HOME PAGE (dashboard)
+# ---------------------------------------------------------
 @app.get("/", response_class=HTMLResponse)
-async def home(request: Request):
+def home(request: Request):
     return templates.TemplateResponse("dashboard.html", {"request": request})
 
 
-@app.get("/scan", response_class=HTMLResponse)
-async def scan(request: Request, subnet: str = "192.168.0.0/24"):
+# ---------------------------------------------------------
+#  RUN SCAN API — triggered from Dashboard button
+# ---------------------------------------------------------
+@app.get("/scan", response_class=JSONResponse)
+def scan(subnet: str = "192.168.0.0/24"):
+    """
+    Example:
+      GET /scan?subnet=192.168.0.0/24
+    """
+    print(f"[+] Running full scan on {subnet}")
+
     devices = run_full_scan(subnet)
 
-    html = generate_html_report(devices)
-    with open("scan_report.html", "w") as f:
-        f.write(html)
-
-    generate_pdf_report("scan_report.pdf", html)
-
-    return templates.TemplateResponse(
-        "scan.html",
-        {
-            "request": request,
-            "devices": devices,
-            "subnet": subnet
-        }
-    )
+    return {"status": "ok", "count": len(devices), "devices": devices}
 
 
+# ---------------------------------------------------------
+#  API: DEVICES (dashboard table loads from here)
+# ---------------------------------------------------------
+@app.get("/api/devices", response_class=JSONResponse)
+def api_devices(subnet: str = "192.168.0.0/24"):
+    devices = run_full_scan(subnet)
+    return {"devices": devices}
+
+
+# ---------------------------------------------------------
+#  API: SUMMARY (open ports, OS distribution, issues, etc.)
+# ---------------------------------------------------------
+@app.get("/api/summary", response_class=JSONResponse)
+def api_summary(subnet: str = "192.168.0.0/24"):
+    devices = run_full_scan(subnet)
+
+    summary = {
+        "device_count": len(devices),
+        "os_counts": {},
+        "total_open_ports": 0,
+        "issue_count": 0
+    }
+
+    for d in devices:
+        os_name = d["os"]
+        summary["os_counts"][os_name] = summary["os_counts"].get(os_name, 0) + 1
+        summary["total_open_ports"] += len(d["open_ports"])
+        summary["issue_count"] += len(d["issues"])
+
+    return summary
+
+
+# ---------------------------------------------------------
+#  HISTORY PAGE (saved scans)
+# ---------------------------------------------------------
 @app.get("/history", response_class=HTMLResponse)
-async def history(request: Request):
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute("SELECT id, timestamp FROM scan_runs ORDER BY id DESC")
-    scans = cur.fetchall()
-
-    return templates.TemplateResponse("history.html",
-        {"request": request, "scans": scans})
+def history_page(request: Request):
+    return templates.TemplateResponse("history.html", {"request": request})
 
 
-@app.get("/history/{scan_id}", response_class=HTMLResponse)
-async def view_scan(request: Request, scan_id: int):
-    conn = get_connection()
-    cur = conn.cursor()
+# ---------------------------------------------------------
+#  INDIVIDUAL SCAN REPORT PAGE
+# ---------------------------------------------------------
+@app.get("/scan-report", response_class=HTMLResponse)
+def scan_report(request: Request):
+    return templates.TemplateResponse("scan.html", {"request": request})
 
-    cur.execute("""
-        SELECT ip, mac, vendor, os_guess, id FROM devices
-        WHERE scan_id = ?
-    """, (scan_id,))
-    devices = cur.fetchall()
 
-    device_list = []
-    for ip, mac, vendor, os_guess, dev_id in devices:
-        cur.execute("SELECT port FROM ports WHERE device_id = ?", (dev_id,))
-        ports = [p[0] for p in cur.fetchall()]
-
-        cur.execute("SELECT issue FROM issues WHERE device_id = ?", (dev_id,))
-        issues = [i[0] for i in cur.fetchall()]
-
-        device_list.append({
-            "ip": ip,
-            "mac": mac,
-            "vendor": vendor,
-            "os": os_guess,
-            "ports": ports,
-            "issues": issues
-        })
-
-    return templates.TemplateResponse(
-        "scan.html",
-        {"request": request, "devices": device_list, "subnet": "(history)"}
-    )
+# ---------------------------------------------------------
+#  HEALTH CHECK (optional)
+# ---------------------------------------------------------
+@app.get("/health")
+def health():
+    return {"status": "running"}

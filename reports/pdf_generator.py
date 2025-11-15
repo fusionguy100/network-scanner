@@ -1,16 +1,7 @@
-from reportlab.pdfgen import canvas
+import pdfkit
 
-def generate_pdf_report(output_file, text):
-    c = canvas.Canvas(output_file)
-    c.setFont("Helvetica", 10)
+def generate_pdf_report(output_file, html_content):
+    # If wkhtmltopdf isn't in PATH, set the full path manually:
+    config = pdfkit.configuration(wkhtmltopdf=r"C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe")
 
-    y = 800
-    for line in text.split("\n"):
-        c.drawString(40, y, line)
-        y -= 14
-
-        if y < 40:
-            c.showPage()
-            y = 800
-
-    c.save()
+    pdfkit.from_string(html_content, output_file, configuration=config)
