@@ -19,5 +19,19 @@ async def async_scan_ports(ip, ports=COMMON_PORTS):
     return [port for port in results if port is not None]
 
 
+# THIS is the function your engine calls
 def fast_port_scan(ip, ports=COMMON_PORTS):
-    return asyncio.run(async_scan_ports(ip, ports))
+    """
+    If called inside FastAPI (event loop running) → schedule async task
+    If called from CLI (no event loop) → asyncio.run()
+    """
+
+    try:
+        loop = asyncio.get_running_loop()
+        # We are inside FastAPI (async mode)
+        # Must return a coroutine to be awaited by the engine
+        return asyncio.ensure_future(async_scan_ports(ip, ports))
+
+    except RuntimeError:
+        # No event loop → CLI mode → safe to run blocking
+        return asyncio.run(async_scan_ports(ip, ports))

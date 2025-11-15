@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Scan History</h2>
+
+<table>
+    <tr>
+        <th>Scan ID</th>
+        <th>Timestamp</th>
+        <th>View</th>
+    </tr>
+
+{% for scan in scans %}
+    <tr>
+        <td>{{ scan[0] }}</td>
+        <td>{{ scan[1] }}</td>
+        <td><a href="/history/{{ scan[0] }}">View Scan</a></td>
+    </tr>
+{% endfor %}
+</table>
+
+{% endblock %}

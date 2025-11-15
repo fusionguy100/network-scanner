@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Scan Results — {{ subnet }}</h2>
+
+<table>
+    <tr>
+        <th>IP</th>
+        <th>Vendor</th>
+        <th>OS</th>
+        <th>Ports</th>
+        <th>Issues</th>
+    </tr>
+
+{% for dev in devices %}
+    <tr>
+        <td>{{ dev.ip }}</td>
+        <td>{{ dev.vendor }}</td>
+        <td>{{ dev.os }}</td>
+        <td>{{ dev.open_ports if dev.open_ports else dev.ports }}</td>
+        <td>
+            <ul>
+            {% for issue in dev.issues %}
+                <li>{{ issue }}</li>
+            {% endfor %}
+            </ul>
+        </td>
+    </tr>
+{% endfor %}
+</table>
+
+<br>
+<a href="/static/scan_report.html" download>Download HTML Report</a><br>
+<a href="/static/scan_report.pdf" download>Download PDF Report</a>
+
+{% endblock %}
