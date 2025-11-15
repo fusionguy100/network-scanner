@@ -1,6 +1,5 @@
 scapy
 python-nmap
-netifaces
 jinja2
 reportlab
 requests
