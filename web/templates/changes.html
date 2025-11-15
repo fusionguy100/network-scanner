@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2 class="mb-4">Network Changes</h2>
+
+<div id="loading_changes" class="text-center" style="display:none;">
+    <div class="spinner-border text-primary"></div>
+    <p>Loading changes...</p>
+</div>
+
+<div id="changes_content" style="display:none;">
+
+    <!-- New Devices -->
+    <div class="card border-success shadow-sm mb-4">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">New Devices Detected</h5>
+        </div>
+        <div class="card-body">
+            <ul id="new_devices" class="list-group"></ul>
+        </div>
+    </div>
+
+    <!-- Removed Devices -->
+    <div class="card border-danger shadow-sm mb-4">
+        <div class="card-header bg-danger text-white">
+            <h5 class="mb-0">Devices Removed</h5>
+        </div>
+        <div class="card-body">
+            <ul id="removed_devices" class="list-group"></ul>
+        </div>
+    </div>
+
+    <!-- Port Changes -->
+    <div class="card border-warning shadow-sm mb-4">
+        <div class="card-header bg-warning">
+            <h5 class="mb-0">Port Changes</h5>
+        </div>
+        <div class="card-body">
+            <ul id="port_changes" class="list-group"></ul>
+        </div>
+    </div>
+
+</div>
+
+<script src="/static/changes.js"></script>
+
+{% endblock %}

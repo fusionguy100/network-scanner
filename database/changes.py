@@ -1,72 +1,70 @@
-from database.db import get_connection
+import os
+import sqlite3
+import json
+
+# Load DB file path (same as db.py)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DB_FILE = os.path.join(BASE_DIR, "scans.db")
 
 
-def get_last_two_scans():
-    conn = get_connection()
-    cur = conn.cursor()
+# Internal helper
+def _get_last_two_scans():
+    """Returns the last 2 scans from DB, newest first."""
+    con = sqlite3.connect(DB_FILE)
+    cur = con.cursor()
 
-    cur.execute("SELECT id FROM scan_runs ORDER BY id DESC LIMIT 2")
+    cur.execute("SELECT id, devices_json FROM scans ORDER BY id DESC LIMIT 2")
     rows = cur.fetchall()
+    con.close()
 
-    conn.close()
-
-    if len(rows) < 2:
-        return None, None
-
-    return rows[1][0], rows[0][0]   # (previous, latest)
-
-
-def get_devices_for_scan(scan_id):
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute("SELECT id, ip FROM devices WHERE scan_id = ?", (scan_id,))
-    devices = cur.fetchall()
-
-    conn.close()
-    return devices
-
-
-def get_ports_for_device(device_id):
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute("SELECT port FROM ports WHERE device_id = ?", (device_id,))
-    ports = [row[0] for row in cur.fetchall()]
-
-    conn.close()
-    return ports
+    return rows
 
 
 def detect_changes():
-    prev_scan, latest_scan = get_last_two_scans()
+    """
+    Compares the last scan vs the previous scan and detects:
+      - new devices
+      - removed devices
+      - opened ports
+      - closed ports
+    """
+    rows = _get_last_two_scans()
 
-    if not prev_scan:
-        return {"first_run": True}
+    if len(rows) < 2:
+        return {
+            "first_run": True,
+            "new_devices": [],
+            "removed_devices": [],
+            "port_changes": []
+        }
 
-    prev_devices = get_devices_for_scan(prev_scan)
-    latest_devices = get_devices_for_scan(latest_scan)
+    latest_id, latest_json = rows[0]
+    prev_id, prev_json = rows[1]
 
-    prev_ips = {d[1]: d[0] for d in prev_devices}
-    latest_ips = {d[1]: d[0] for d in latest_devices}
+    latest = json.loads(latest_json)
+    prev = json.loads(prev_json)
 
-    # New devices
+    latest_ips = {d["ip"]: d for d in latest}
+    prev_ips = {d["ip"]: d for d in prev}
+
+    # ------------------------------------
+    # Detect new & removed devices
+    # ------------------------------------
     new_devices = [ip for ip in latest_ips if ip not in prev_ips]
-
-    # Removed devices
     removed_devices = [ip for ip in prev_ips if ip not in latest_ips]
 
-    # Port changes
+    # ------------------------------------
+    # Detect port changes
+    # ------------------------------------
     port_changes = []
 
-    for ip, dev_id in latest_ips.items():
+    for ip in latest_ips:
         if ip in prev_ips:
-            old_dev_id = prev_ips[ip]
-            old_ports = set(get_ports_for_device(old_dev_id))
-            new_ports = set(get_ports_for_device(dev_id))
+            latest_ports = set(latest_ips[ip]["open_ports"])
+            prev_ports = set(prev_ips[ip]["open_ports"])
 
-            opened = list(new_ports - old_ports)
-            closed = list(old_ports - new_ports)
+            opened = list(latest_ports - prev_ports)
+            closed = list(prev_ports - latest_ports)
 
             if opened or closed:
                 port_changes.append({

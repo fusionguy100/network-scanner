@@ -1,22 +1,31 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h2>Scan History</h2>
+<h2 class="mb-4">Scan History</h2>
 
-<table>
-    <tr>
-        <th>Scan ID</th>
-        <th>Timestamp</th>
-        <th>View</th>
-    </tr>
-
-{% for scan in scans %}
-    <tr>
-        <td>{{ scan[0] }}</td>
-        <td>{{ scan[1] }}</td>
-        <td><a href="/history/{{ scan[0] }}">View Scan</a></td>
-    </tr>
-{% endfor %}
+<table class="table table-hover">
+    <thead class="table-dark">
+        <tr>
+            <th>ID</th>
+            <th>Timestamp</th>
+            <th>Details</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for scan in scans %}
+        <tr>
+            <td>{{ scan.id }}</td>
+            <td>{{ scan.timestamp }}</td>
+            <td>
+                <a href="/history/{{ scan.id }}" class="btn btn-primary btn-sm">View</a>
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
 </table>
+
+{% if scans|length == 0 %}
+<p>No scans saved yet.</p>
+{% endif %}
 
 {% endblock %}

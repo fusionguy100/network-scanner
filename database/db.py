@@ -1,53 +1,70 @@
 import sqlite3
-from datetime import datetime
+import json
 
-DB_NAME = "scans.db"
+DB_FILE = "scans.db"
 
 
 def get_connection():
-    return sqlite3.connect(DB_NAME)
+    """
+    Creates the database file if missing.
+    Ensures the 'scans' table exists with correct schema.
+    """
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    create_tables(conn)
+    return conn
 
 
-def init_db():
-    conn = get_connection()
+def create_tables(conn):
+    """
+    Correct schema with timestamp DEFAULT CURRENT_TIMESTAMP
+    """
     cur = conn.cursor()
 
     cur.execute("""
-        CREATE TABLE IF NOT EXISTS scan_runs (
+        CREATE TABLE IF NOT EXISTS scans (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp TEXT NOT NULL
-        );
-    """)
-
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS devices (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            scan_id INTEGER,
-            ip TEXT,
-            mac TEXT,
-            vendor TEXT,
-            os_guess TEXT,
-            FOREIGN KEY (scan_id) REFERENCES scan_runs(id)
-        );
-    """)
-
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS ports (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            device_id INTEGER,
-            port INTEGER,
-            FOREIGN KEY (device_id) REFERENCES devices(id)
-        );
-    """)
-
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS issues (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            device_id INTEGER,
-            issue TEXT,
-            FOREIGN KEY (device_id) REFERENCES devices(id)
+            timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
+            devices_json TEXT NOT NULL
         );
     """)
 
     conn.commit()
+
+
+def init_db():
+    """
+    Optional — ensures DB exists on start
+    """
+    conn = get_connection()
     conn.close()
+
+
+def get_all_scans():
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("SELECT id, timestamp FROM scans ORDER BY id DESC")
+    scans = cur.fetchall()
+
+    conn.close()
+    return scans
+
+
+def get_scan_by_id(scan_id: int):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("SELECT * FROM scans WHERE id = ?", (scan_id,))
+    scan = cur.fetchone()
+
+    conn.close()
+
+    if not scan:
+        return None
+
+    return {
+        "id": scan["id"],
+        "timestamp": scan["timestamp"],
+        "devices": json.loads(scan["devices_json"])
+    }

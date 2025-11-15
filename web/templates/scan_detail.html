@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Scan #{{ scan.id }}</h2>
+<p><strong>Date:</strong> {{ scan.timestamp }}</p>
+
+<hr>
+
+<h3>Devices</h3>
+
+<table class="table table-striped table-hover">
+    <thead class="table-dark">
+        <tr>
+            <th>IP</th>
+            <th>Vendor</th>
+            <th>OS</th>
+            <th>Open Ports</th>
+            <th>Issues</th>
+        </tr>
+    </thead>
+
+    <tbody>
+    {% for dev in scan.devices %}
+        <tr>
+            <td>{{ dev.ip }}</td>
+            <td>{{ dev.vendor }}</td>
+            <td>{{ dev.os }}</td>
+            <td>{{ dev.open_ports|join(", ") }}</td>
+            <td>
+                {% if dev.issues|length > 0 %}
+                    <span class="badge bg-danger">{{ dev.issues|length }} Issues</span>
+                {% else %}
+                    <span class="badge bg-success">OK</span>
+                {% endif %}
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+{% endblock %}
